@@ -79,14 +79,19 @@ class DoctorViewModel : ViewModel() {
         }
     }
 
-    // Refactored to handle only a single medicine document.
     fun prescribeMedicine(patientId: String, medicine: Medicine) {
         viewModelScope.launch {
             try {
+                val doctorId = auth.currentUser?.uid ?: throw Exception("Doctor not logged in")
+                val doctor = firestore.collection("users").document(doctorId).get().await().toObject<User>()
+                val doctorName = doctor?.name ?: "Unknown Doctor"
+
                 val collection = firestore.collection("users").document(patientId).collection("medicines")
-                // If the medicine has an ID, it's an update; otherwise, it's a new prescription.
                 val id = medicine.id.ifEmpty { collection.document().id }
-                collection.document(id).set(medicine.copy(id = id)).await()
+                
+                val finalMedicine = medicine.copy(id = id, doctorName = doctorName)
+                
+                collection.document(id).set(finalMedicine).await()
             } catch (e: Exception) {
                 Log.e("DoctorViewModel", "Error prescribing medicine", e)
             }

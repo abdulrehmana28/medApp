@@ -84,6 +84,15 @@ fun PatientDashboard(
                             Text(text = medicine.name, style = MaterialTheme.typography.headlineSmall, textDecoration = textDecoration)
                             Text(text = "Dosage: ${medicine.dosage}", style = MaterialTheme.typography.bodyMedium, textDecoration = textDecoration)
                             Text(text = "Time: ${medicine.time}", style = MaterialTheme.typography.bodyMedium, textDecoration = textDecoration)
+                            if (medicine.doctorName.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Prescribed by Dr. ${medicine.doctorName}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color.Gray,
+                                    textDecoration = textDecoration
+                                )
+                            }
                         }
                     }
                 }
