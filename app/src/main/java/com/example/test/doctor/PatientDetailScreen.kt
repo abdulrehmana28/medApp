@@ -8,6 +8,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,6 +29,8 @@ fun PatientDetailScreen(
     val medicines by doctorViewModel.patientMedicines.collectAsState()
     var showSheet by remember { mutableStateOf(false) }
     var selectedMedicine by remember { mutableStateOf<Medicine?>(null) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var medicineToDelete by remember { mutableStateOf<Medicine?>(null) }
 
     LaunchedEffect(patientId) {
         doctorViewModel.getPatientMedicines(patientId)
@@ -37,7 +40,7 @@ fun PatientDetailScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    selectedMedicine = null // Clear selection for new prescription
+                    selectedMedicine = null
                     showSheet = true
                 },
                 containerColor = MaterialTheme.colorScheme.primary,
@@ -65,11 +68,19 @@ fun PatientDetailScreen(
                             Text(text = "Dosage: ${medicine.dosage}", style = MaterialTheme.typography.bodyMedium)
                             Text(text = "Time: ${medicine.time}", style = MaterialTheme.typography.bodyMedium)
                         }
-                        IconButton(onClick = {
-                            selectedMedicine = medicine
-                            showSheet = true
-                        }) {
-                            Icon(Icons.Default.Edit, contentDescription = "Edit Medicine")
+                        Row {
+                            IconButton(onClick = {
+                                selectedMedicine = medicine
+                                showSheet = true
+                            }) {
+                                Icon(Icons.Default.Edit, contentDescription = "Edit Medicine")
+                            }
+                            IconButton(onClick = { 
+                                medicineToDelete = medicine
+                                showDeleteDialog = true
+                            }) {
+                                Icon(Icons.Default.Delete, contentDescription = "Delete Medicine", tint = Color.Red)
+                            }
                         }
                     }
                 }
@@ -87,6 +98,38 @@ fun PatientDetailScreen(
             }
         )
     }
+
+    if (showDeleteDialog) {
+        DeleteConfirmationDialog(
+            onConfirm = {
+                medicineToDelete?.let { doctorViewModel.deleteMedicine(patientId, it.id) }
+                showDeleteDialog = false
+            },
+            onDismiss = { showDeleteDialog = false }
+        )
+    }
+}
+
+@Composable
+private fun DeleteConfirmationDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Delete Medicine?") },
+        text = { Text("Are you sure you want to remove this prescription?") },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                colors = ButtonDefaults.textButtonColors(contentColor = Color.Red)
+            ) {
+                Text("Delete")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -110,9 +153,7 @@ private fun PrescribeMedicineSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState
     ) {
-        // This outer column allows the button to be pushed up by the keyboard
         Column(Modifier.navigationBarsPadding().imePadding()) {
-            // This inner column contains the scrollable content
             Column(
                 modifier = Modifier
                     .padding(16.dp)
@@ -153,7 +194,6 @@ private fun PrescribeMedicineSheet(
                 TimePicker(state = timeState)
             }
             
-            // Save Button is outside the scrollable column but inside the IME padded column
             Button(
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
@@ -170,7 +210,7 @@ private fun PrescribeMedicineSheet(
             ) {
                 Text(if (isEditing) "Save Changes" else "Save Prescription")
             }
-            Spacer(modifier = Modifier.height(16.dp)) // Spacer at the very bottom
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

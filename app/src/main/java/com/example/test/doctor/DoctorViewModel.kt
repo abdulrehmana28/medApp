@@ -1,8 +1,8 @@
 package com.example.test.doctor
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-
 import com.example.test.data.User
 import com.example.test.data.UserRepository
 import com.example.test.medicines.Medicine
@@ -40,7 +40,7 @@ class DoctorViewModel : ViewModel() {
             try {
                 val doctorDoc = firestore.collection("users").document(doctorId).get().await()
                 val doctor = doctorDoc.toObject<User>()
-
+                
                 if (doctor?.patientIds?.isNotEmpty() == true) {
                     val patientsQuery = firestore.collection("users")
                         .whereIn("uid", doctor.patientIds)
@@ -51,11 +51,11 @@ class DoctorViewModel : ViewModel() {
                     _patients.value = emptyList()
                 }
             } catch (e: Exception) {
-                // Handle error
+                Log.e("DoctorViewModel", "Error fetching patients", e)
             }
         }
     }
-
+    
     fun linkPatient(patientEmail: String) {
         viewModelScope.launch {
             val result = userRepository.linkPatientToDoctor(patientEmail)
@@ -71,7 +71,7 @@ class DoctorViewModel : ViewModel() {
             firestore.collection("users").document(patientId).collection("medicines")
                 .addSnapshotListener { snapshot, e ->
                     if (e != null) {
-                        // Handle error
+                        Log.e("DoctorViewModel", "Error fetching patient medicines", e)
                         return@addSnapshotListener
                     }
                     _patientMedicines.value = snapshot?.toObjects(Medicine::class.java) ?: emptyList()
@@ -83,14 +83,12 @@ class DoctorViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 val collection = firestore.collection("users").document(patientId).collection("medicines")
-
-                // If frequency is null, it's a single edit.
+                
                 if (frequency == null) {
                     collection.document(medicine.id).set(medicine).await()
                     return@launch
                 }
-
-                // Otherwise, create multiple documents based on frequency.
+                
                 val calendar = Calendar.getInstance().apply {
                     set(Calendar.HOUR_OF_DAY, medicine.time.substringBefore(":").toInt())
                     set(Calendar.MINUTE, medicine.time.substringAfter(":").toInt())
@@ -101,12 +99,24 @@ class DoctorViewModel : ViewModel() {
                     val id = collection.document().id
                     val newDose = medicine.copy(id = id, time = doseTime, isTaken = false)
                     collection.document(id).set(newDose).await()
-
-                    // Add interval for the next dose (e.g., 6 hours)
+                    
                     calendar.add(Calendar.HOUR_OF_DAY, 6)
                 }
             } catch (e: Exception) {
-                // Handle error
+                Log.e("DoctorViewModel", "Error prescribing medicine", e)
+            }
+        }
+    }
+
+    fun deleteMedicine(patientId: String, medicineId: String) {
+        viewModelScope.launch {
+            try {
+                firestore.collection("users").document(patientId).collection("medicines")
+                    .document(medicineId)
+                    .delete()
+                    .await()
+            } catch (e: Exception) {
+                Log.e("DoctorViewModel", "Error deleting medicine", e)
             }
         }
     }
