@@ -1,5 +1,6 @@
 package com.example.test.doctor
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -139,11 +141,15 @@ private fun PrescribeMedicineSheet(
     onDismiss: () -> Unit,
     onSave: (Medicine, Int?) -> Unit
 ) {
+    val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState()
     var name by remember { mutableStateOf(medicine?.name ?: "") }
     var dosage by remember { mutableStateOf(medicine?.dosage ?: "") }
     var frequency by remember { mutableStateOf("1") }
     val isEditing = medicine != null
+
+    var isNameError by remember { mutableStateOf(false) }
+    var isDosageError by remember { mutableStateOf(false) }
 
     val initialHour = medicine?.time?.substringBefore(":")?.toIntOrNull() ?: 8
     val initialMinute = medicine?.time?.substringAfter(":")?.toIntOrNull() ?: 0
@@ -169,14 +175,22 @@ private fun PrescribeMedicineSheet(
 
                 OutlinedTextField(
                     value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Medicine Name") }
+                    onValueChange = { 
+                        name = it
+                        isNameError = false // Reset error on change
+                    },
+                    label = { Text("Medicine Name") },
+                    isError = isNameError
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = dosage,
-                    onValueChange = { dosage = it },
-                    label = { Text("Dosage") }
+                    onValueChange = { 
+                        dosage = it 
+                        isDosageError = false // Reset error on change
+                    },
+                    label = { Text("Dosage") },
+                    isError = isDosageError
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -200,6 +214,14 @@ private fun PrescribeMedicineSheet(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
                 onClick = {
+                    isNameError = name.isBlank()
+                    isDosageError = dosage.isBlank()
+
+                    if (isNameError || isDosageError) {
+                        Toast.makeText(context, "Please fill in all required fields.", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
                     val formattedTime = String.format("%02d:%02d", timeState.hour, timeState.minute)
                     val updatedMedicine = medicine?.copy(name = name, dosage = dosage, time = formattedTime)
                         ?: Medicine(name = name, dosage = dosage, time = formattedTime)
