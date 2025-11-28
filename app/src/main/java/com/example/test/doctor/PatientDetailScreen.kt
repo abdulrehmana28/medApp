@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -17,7 +16,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.test.medicines.Medicine
@@ -94,8 +92,8 @@ fun PatientDetailScreen(
         PrescribeMedicineSheet(
             medicine = selectedMedicine,
             onDismiss = { showSheet = false },
-            onSave = { updatedMedicine, frequency ->
-                doctorViewModel.prescribeMedicine(patientId, updatedMedicine, frequency)
+            onSave = { updatedMedicine ->
+                doctorViewModel.prescribeMedicine(patientId, updatedMedicine)
                 showSheet = false
             }
         )
@@ -139,13 +137,12 @@ private fun DeleteConfirmationDialog(onConfirm: () -> Unit, onDismiss: () -> Uni
 private fun PrescribeMedicineSheet(
     medicine: Medicine?,
     onDismiss: () -> Unit,
-    onSave: (Medicine, Int?) -> Unit
+    onSave: (Medicine) -> Unit
 ) {
     val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState()
     var name by remember { mutableStateOf(medicine?.name ?: "") }
     var dosage by remember { mutableStateOf(medicine?.dosage ?: "") }
-    var frequency by remember { mutableStateOf("1") }
     val isEditing = medicine != null
 
     var isNameError by remember { mutableStateOf(false) }
@@ -177,7 +174,7 @@ private fun PrescribeMedicineSheet(
                     value = name,
                     onValueChange = { 
                         name = it
-                        isNameError = false // Reset error on change
+                        isNameError = false
                     },
                     label = { Text("Medicine Name") },
                     isError = isNameError
@@ -187,24 +184,14 @@ private fun PrescribeMedicineSheet(
                     value = dosage,
                     onValueChange = { 
                         dosage = it 
-                        isDosageError = false // Reset error on change
+                        isDosageError = false
                     },
                     label = { Text("Dosage") },
                     isError = isDosageError
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
-                if (!isEditing) {
-                    OutlinedTextField(
-                        value = frequency,
-                        onValueChange = { frequency = it },
-                        label = { Text("Frequency (times per day)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-
-                Text(if (isEditing) "Edit Time" else "Start Time")
+                Text("Time")
                 TimePicker(state = timeState)
             }
             
@@ -226,8 +213,7 @@ private fun PrescribeMedicineSheet(
                     val updatedMedicine = medicine?.copy(name = name, dosage = dosage, time = formattedTime)
                         ?: Medicine(name = name, dosage = dosage, time = formattedTime)
 
-                    val freqInt = if (isEditing) null else frequency.toIntOrNull() ?: 1
-                    onSave(updatedMedicine, freqInt)
+                    onSave(updatedMedicine)
                 }
             ) {
                 Text(if (isEditing) "Save Changes" else "Save Prescription")

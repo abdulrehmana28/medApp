@@ -79,29 +79,14 @@ class DoctorViewModel : ViewModel() {
         }
     }
 
-    fun prescribeMedicine(patientId: String, medicine: Medicine, frequency: Int?) {
+    // Refactored to handle only a single medicine document.
+    fun prescribeMedicine(patientId: String, medicine: Medicine) {
         viewModelScope.launch {
             try {
                 val collection = firestore.collection("users").document(patientId).collection("medicines")
-                
-                if (frequency == null) {
-                    collection.document(medicine.id).set(medicine).await()
-                    return@launch
-                }
-                
-                val calendar = Calendar.getInstance().apply {
-                    set(Calendar.HOUR_OF_DAY, medicine.time.substringBefore(":").toInt())
-                    set(Calendar.MINUTE, medicine.time.substringAfter(":").toInt())
-                }
-
-                for (i in 0 until frequency) {
-                    val doseTime = String.format("%02d:%02d", calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE))
-                    val id = collection.document().id
-                    val newDose = medicine.copy(id = id, time = doseTime, isTaken = false)
-                    collection.document(id).set(newDose).await()
-                    
-                    calendar.add(Calendar.HOUR_OF_DAY, 6)
-                }
+                // If the medicine has an ID, it's an update; otherwise, it's a new prescription.
+                val id = medicine.id.ifEmpty { collection.document().id }
+                collection.document(id).set(medicine.copy(id = id)).await()
             } catch (e: Exception) {
                 Log.e("DoctorViewModel", "Error prescribing medicine", e)
             }
