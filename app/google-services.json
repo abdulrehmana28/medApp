@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "676511602560",
+    "project_id": "medmate-f251f",
+    "storage_bucket": "medmate-f251f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:676511602560:android:0c68e4401a5626b3879365",
+        "android_client_info": {
+          "package_name": "com.example.test"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCKFOgfg1_jnKaJGrvnRMSDsJfqwsibzWM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
