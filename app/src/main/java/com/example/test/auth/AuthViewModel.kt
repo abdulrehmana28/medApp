@@ -22,6 +22,19 @@ class AuthViewModel : ViewModel() {
     private val _authState = MutableStateFlow<AuthState>(AuthState.Idle)
     val authState: StateFlow<AuthState> = _authState
 
+    // Check for existing user on startup
+    init {
+        if (auth.currentUser != null) {
+            _authState.value = AuthState.Authenticated
+        }
+    }
+
+    // signOut function
+    fun signOut() {
+        auth.signOut()
+        _authState.value = AuthState.Idle
+    }
+
     fun login(email: String, password: String) {
         viewModelScope.launch {
             _authState.value = AuthState.Loading

@@ -16,6 +16,7 @@ import com.example.test.auth.LoginScreen
 import com.example.test.auth.RegisterScreen
 import com.example.test.chat.ChatScreen
 import com.example.test.doctor.DoctorDashboard
+import com.example.test.doctor.PatientAnalysisScreen
 import com.example.test.doctor.PatientDetailScreen
 import com.example.test.home.HomeScreen
 
@@ -44,6 +45,25 @@ fun NavGraph() {
         ) {
             PatientDetailScreen(it.arguments?.getString("patientId") ?: "")
         }
+
+        composable(
+            route = "patient_analysis/{patientId}/{patientName}",
+            arguments = listOf(
+                navArgument("patientId") { type = NavType.StringType },
+                navArgument("patientName") { type = NavType.StringType; defaultValue = "Patient" }
+            )
+        ) { backStackEntry ->
+            // Extract arguments pushed from the previous screen
+            val patientId = backStackEntry.arguments?.getString("patientId") ?: return@composable
+            val patientName = backStackEntry.arguments?.getString("patientName") ?: "Patient"
+
+            PatientAnalysisScreen(
+                navController = navController,
+                patientId = patientId,
+                patientName = patientName
+            )
+        }
+
         composable(
             "chat/{chatId}/{chatPartnerName}",
             arguments = listOf(

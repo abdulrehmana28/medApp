@@ -4,8 +4,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -13,18 +17,20 @@ import androidx.navigation.NavController
 import com.example.test.chat.ChatUtils
 import com.example.test.home.HomeViewModel
 import kotlinx.coroutines.launch
+import com.example.test.auth.AuthViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DoctorDashboard(
-    navController: NavController, 
-    doctorViewModel: DoctorViewModel = viewModel(), 
-    homeViewModel: HomeViewModel = viewModel()
+    navController: NavController,
+    doctorViewModel: DoctorViewModel = viewModel(),
+    homeViewModel: HomeViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel()
 ) {
     val patients by doctorViewModel.patients.collectAsState()
     val user by homeViewModel.user.collectAsState()
     val linkingResult by doctorViewModel.linkingResult.collectAsState()
-    
+
     var showLinkPatientDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -41,22 +47,33 @@ fun DoctorDashboard(
     }
 
     Scaffold(
-        topBar = { 
+        topBar = {
             TopAppBar(
                 title = { Text("My Patients") },
                 actions = {
                     Button(onClick = { showLinkPatientDialog = true }) {
                         Text("Link New Patient")
                     }
+
+                    // Logout Button
+                    TextButton(onClick = {
+                        authViewModel.signOut()
+                        // Navigate back to login and clear backstack
+                        navController.navigate("login") {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }) {
+                        Text("Logout", color = MaterialTheme.colorScheme.error)
+                    }
                 }
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) {
+    ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(it)
+                .padding(paddingValues)
                 .padding(16.dp)
         ) {
             if (showLinkPatientDialog) {
@@ -75,20 +92,57 @@ fun DoctorDashboard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 4.dp)
+                            // Clicking the whole card goes to details (edit medicines)
                             .clickable { navController.navigate("patient_details/${patient.uid}") }
                     ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Display patient's name instead of email
-                            Text(text = patient.name, style = MaterialTheme.typography.bodyLarge)
-                            Button(onClick = { 
-                                val chatId = ChatUtils.getChatId(user!!.uid, patient.uid)
-                                // Pass patient's name to the chat screen
-                                navController.navigate("chat/$chatId/${patient.name}")
-                            }) {
-                                Text("Chat")
+                            // 1. Patient Name
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = patient.name,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                Text(
+                                    text = "Tap to edit prescriptions",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                            }
+
+                            // 2. Action Buttons (Chat & Analysis)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                // Chat Button (Icon only to save space)
+                                IconButton(onClick = {
+                                    val chatId = ChatUtils.getChatId(user!!.uid, patient.uid)
+                                    navController.navigate("chat/$chatId/${patient.name}")
+                                }) {
+                                    Icon(Icons.Default.Email, contentDescription = "Chat")
+                                }
+
+                                Spacer(modifier = Modifier.width(4.dp))
+
+                                // Analysis Button
+                                Button(
+                                    onClick = {
+                                        // Navigate to the Analysis Screen
+                                        navController.navigate("patient_analysis/${patient.uid}/${patient.name}")
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 12.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.DateRange, // Using DateRange icon as it looks like a table/schedule
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Analysis")
+                                }
                             }
                         }
                     }

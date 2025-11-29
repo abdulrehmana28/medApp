@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.test.auth.AuthViewModel
 import com.example.test.chat.ChatUtils
 import com.example.test.data.User
 import com.example.test.medicines.AlarmScheduler
@@ -34,7 +35,8 @@ fun PatientDashboard(
     navController: NavController,
     user: User,
     medicineViewModel: MedicineViewModel = viewModel(),
-    patientViewModel: PatientViewModel = viewModel()
+    patientViewModel: PatientViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel()
 ) {
     val medicines by medicineViewModel.medicines.collectAsState()
     val doctors by patientViewModel.linkedDoctors.collectAsState()
@@ -128,8 +130,19 @@ fun PatientDashboard(
                             val chatId = ChatUtils.getChatId(user.uid, primaryDoctor.uid)
                             navController.navigate("chat/$chatId/${primaryDoctor.name}")
                         }) {
-                            Text("Chat with ${primaryDoctor.name}")
+                            Text("Chat with Dr ${primaryDoctor.name}")
                         }
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+
+                    //  Logout Button
+                    TextButton(onClick = {
+                        authViewModel.signOut()
+                        navController.navigate("login") {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }) {
+                        Text("Logout", color = MaterialTheme.colorScheme.error)
                     }
                 }
             )
