@@ -21,6 +21,14 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.test.medicines.Medicine
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -144,7 +152,10 @@ private fun PrescribeMedicineSheet(
     val sheetState = rememberModalBottomSheetState()
     var name by remember { mutableStateOf(medicine?.name ?: "") }
     var dosage by remember { mutableStateOf(medicine?.dosage ?: "") }
-    val isEditing = medicine != null
+
+    // Day Selection State
+    // Default to empty (which logic handles as daily) or pre-select existing days
+    var selectedDays by remember { mutableStateOf(medicine?.selectedDays ?: emptyList()) }
 
     var isNameError by remember { mutableStateOf(false) }
     var isDosageError by remember { mutableStateOf(false) }
@@ -166,36 +177,46 @@ private fun PrescribeMedicineSheet(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = if (isEditing) "Edit Prescription" else "New Prescription",
+                    text = if (medicine != null) "Edit Prescription" else "New Prescription",
                     style = MaterialTheme.typography.headlineSmall
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
                 OutlinedTextField(
                     value = name,
-                    onValueChange = { 
+                    onValueChange = {
                         name = it
                         isNameError = false
                     },
                     label = { Text("Medicine Name") },
-                    isError = isNameError
+                    isError = isNameError,
+                    modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = dosage,
-                    onValueChange = { 
-                        dosage = it 
+                    onValueChange = {
+                        dosage = it
                         isDosageError = false
                     },
                     label = { Text("Dosage") },
-                    isError = isDosageError
+                    isError = isDosageError,
+                    modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
-                Text("Time")
+                // NEW: Day Selector UI
+                Text("Frequency", style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+                DaySelector(selectedDays = selectedDays) { newDays ->
+                    selectedDays = newDays
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text("Time", style = MaterialTheme.typography.titleMedium)
                 TimePicker(state = timeState)
             }
-            
+
             Button(
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
@@ -211,15 +232,71 @@ private fun PrescribeMedicineSheet(
                     }
 
                     val formattedTime = String.format("%02d:%02d", timeState.hour, timeState.minute)
-                    val updatedMedicine = medicine?.copy(name = name, dosage = dosage, time = formattedTime)
-                        ?: Medicine(name = name, dosage = dosage, time = formattedTime)
+
+                    // Create the updated medicine object with selected days
+                    val updatedMedicine = medicine?.copy(
+                        name = name,
+                        dosage = dosage,
+                        time = formattedTime,
+                        selectedDays = selectedDays
+                    ) ?: Medicine(
+                        name = name,
+                        dosage = dosage,
+                        time = formattedTime,
+                        selectedDays = selectedDays
+                    )
 
                     onSave(updatedMedicine)
                 }
             ) {
-                Text(if (isEditing) "Save Changes" else "Save Prescription")
+                Text("Save Prescription")
             }
             Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+}
+
+// The Bubble Selector
+@Composable
+fun DaySelector(selectedDays: List<Int>, onSelectionChanged: (List<Int>) -> Unit) {
+    val days = listOf(
+        "S" to Calendar.SUNDAY,
+        "M" to Calendar.MONDAY,
+        "T" to Calendar.TUESDAY,
+        "W" to Calendar.WEDNESDAY,
+        "T" to Calendar.THURSDAY,
+        "F" to Calendar.FRIDAY,
+        "S" to Calendar.SATURDAY
+    )
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        days.forEach { (label, dayConst) ->
+            val isSelected = selectedDays.contains(dayConst)
+            val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
+            val contentColor = if (isSelected) Color.White else Color.Gray
+            val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray
+
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .border(1.dp, borderColor, CircleShape)
+                    .background(backgroundColor)
+                    .clickable {
+                        val newSelection = if (isSelected) {
+                            selectedDays - dayConst
+                        } else {
+                            selectedDays + dayConst
+                        }
+                        onSelectionChanged(newSelection)
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = label, color = contentColor, style = MaterialTheme.typography.bodyMedium)
+            }
         }
     }
 }
