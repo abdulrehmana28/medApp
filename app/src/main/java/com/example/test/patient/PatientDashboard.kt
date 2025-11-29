@@ -7,6 +7,7 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -16,18 +17,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.test.chat.ChatUtils
 import com.example.test.data.User
 import com.example.test.medicines.AlarmScheduler
 import com.example.test.medicines.MedicineViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,73 +38,86 @@ fun PatientDashboard(
 ) {
     val medicines by medicineViewModel.medicines.collectAsState()
     val doctors by patientViewModel.linkedDoctors.collectAsState()
+
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    // 1. Fetch Data on Load
-    LaunchedEffect(user.uid) {
-        medicineViewModel.fetchMedicinesForPatient(user.uid)
-        patientViewModel.fetchLinkedDoctors()
-    }
+    // --- PERMISSION LOGIC ---
 
-    // 2. Schedule Alarms whenever the medicine list changes
-    // This ensures that if a new medicine is added remotely, the alarm is set instantly.
-    LaunchedEffect(medicines) {
-        medicines.forEach { medicine ->
-            if (!medicine.isTaken) {
-                AlarmScheduler.scheduleAlarmsForMedicine(context, medicine)
-            } else {
-                // Optional: Cancel alarm if taken? Usually we keep it for the next schedule.
-                // AlarmScheduler.cancelAlarms(context, medicine)
-            }
-        }
-    }
-
-    // 3. Permission Logic
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { isGranted ->
             if (isGranted) {
-                // Great! Notifications will work.
-            }
-        }
-    )
-
-    // Check permissions whenever the app comes to the foreground (onResume)
-    // This handles the case where the user goes to Settings -> Allows Permission -> Returns to App
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                // Check Notification Permission (Android 13+)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    if (ContextCompat.checkSelfPermission(
-                            context,
-                            Manifest.permission.POST_NOTIFICATIONS
-                        ) != PackageManager.PERMISSION_GRANTED
-                    ) {
-                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    }
+                // Permission granted. We can optionally show a success message.
+                scope.launch {
+                    snackbarHostState.showSnackbar("Notifications enabled! Alarms will work.")
                 }
-
-                // Check Exact Alarm Permission (Android 12+)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    val alarmManager = context.getSystemService(android.app.AlarmManager::class.java)
-                    if (alarmManager?.canScheduleExactAlarms() == false) {
-                        // Ideally, show a Dialog explaining WHY before redirecting
-                        // For MVP, we just redirect if missing.
-                        val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+            } else {
+                // Permission Denied: Show Snackbar with "Settings" action
+                scope.launch {
+                    val result = snackbarHostState.showSnackbar(
+                        message = "Notifications are needed for medicine reminders.",
+                        actionLabel = "Settings",
+                        duration = SnackbarDuration.Long
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        // Open App Settings if user clicks "Settings"
+                        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                        }
                         context.startActivity(intent)
                     }
                 }
             }
         }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
+    )
+
+    // Check permissions ONCE when screen loads
+    LaunchedEffect(Unit) {
+        // 1. Notification Permission (Android 13+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+
+        // 2. Exact Alarm Permission (Android 12+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val alarmManager = context.getSystemService(android.app.AlarmManager::class.java)
+            if (alarmManager?.canScheduleExactAlarms() == false) {
+                val result = snackbarHostState.showSnackbar(
+                    message = "Exact alarms are required for timely reminders.",
+                    actionLabel = "Allow",
+                    duration = SnackbarDuration.Indefinite
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                    context.startActivity(intent)
+                }
+            }
         }
     }
 
+    // --- DATA LOADING & ALARM SCHEDULING ---
+
+    LaunchedEffect(user.uid) {
+        medicineViewModel.fetchMedicinesForPatient(user.uid)
+        patientViewModel.fetchLinkedDoctors()
+    }
+
+    LaunchedEffect(medicines) {
+        medicines.forEach { medicine ->
+            if (!medicine.isTaken) {
+                AlarmScheduler.scheduleAlarmsForMedicine(context, medicine)
+            }
+        }
+    }
+
+    // --- UI STRUCTURE ---
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) }, // REQUIRED for Snackbar to show
         topBar = {
             TopAppBar(
                 title = { Text("My Prescriptions") },
@@ -123,15 +135,42 @@ fun PatientDashboard(
             )
         }
     ) { paddingValues ->
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(paddingValues)
         ) {
-            items(medicines) { medicine ->
-                MedicineCard(medicine, user, medicineViewModel)
+            // Optional: Persistent Warning Banner if permission is missing (Double check)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                        .clickable {
+                            val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                            }
+                            context.startActivity(intent)
+                        }
+                ) {
+                    Text(
+                        "⚠️ Notifications are disabled. Tap here to enable them.",
+                        modifier = Modifier.padding(16.dp),
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                }
+            }
+
+            LazyColumn(
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(medicines) { medicine ->
+                    MedicineCard(medicine, user, medicineViewModel)
+                }
             }
         }
     }
@@ -177,7 +216,6 @@ fun MedicineCard(medicine: com.example.test.medicines.Medicine, user: User, view
                     style = MaterialTheme.typography.bodyMedium,
                     textDecoration = textDecoration
                 )
-                // Display Doctor Name if available
                 if (medicine.doctorName.isNotBlank()) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
