@@ -94,7 +94,7 @@ fun RegisterScreen(navController: NavController, authViewModel: AuthViewModel = 
                 modifier = Modifier.fillMaxWidth(),
                 isError = errorMessage?.contains("password", ignoreCase = true) == true
             )
-            
+
             if (errorMessage != null) {
                 Text(
                     text = errorMessage!!,
@@ -122,10 +122,10 @@ fun RegisterScreen(navController: NavController, authViewModel: AuthViewModel = 
             Spacer(modifier = Modifier.height(16.dp))
 
             Button(
-                onClick = { 
+                onClick = {
                     if (validateFields()) {
                         authViewModel.register(name, email, password, isDoctor)
-                    } 
+                    }
                 },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = authState !is AuthState.Loading

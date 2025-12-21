@@ -13,6 +13,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import com.google.firebase.auth.AuthCredential
+import com.google.firebase.auth.GoogleAuthProvider
 
 class AuthViewModel : ViewModel() {
 
@@ -73,6 +75,36 @@ class AuthViewModel : ViewModel() {
                 }
                 _authState.value = AuthState.Error(errorMessage)
             }
+        }
+    }
+
+    fun signInWithGoogleCredential(credential: AuthCredential) {
+        viewModelScope.launch {
+            _authState.value = AuthState.Loading
+            try {
+                val authResult = auth.signInWithCredential(credential).await()
+                // Check if user exists in Firestore, if not, create them
+                checkAndCreateUserInFirestore(authResult.user!!)
+                _authState.value = AuthState.Authenticated
+            } catch (e: Exception) {
+                _authState.value = AuthState.Error(e.message ?: "Google Sign-In failed")
+            }
+        }
+    }
+
+    private suspend fun checkAndCreateUserInFirestore(firebaseUser: com.google.firebase.auth.FirebaseUser) {
+        val docRef = firestore.collection("users").document(firebaseUser.uid)
+        val snapshot = docRef.get().await()
+
+        if (!snapshot.exists()) {
+            // Logic: New Google users are "patients" by default
+            val newUser = User(
+                uid = firebaseUser.uid,
+                name = firebaseUser.displayName ?: "Google User",
+                email = firebaseUser.email ?: "",
+                role = "patient"
+            )
+            docRef.set(newUser).await()
         }
     }
     
