@@ -45,7 +45,6 @@ fun PatientDetailScreen(
     LaunchedEffect(patientId) {
         doctorViewModel.getPatientMedicines(patientId)
     }
-
     Scaffold(
         floatingActionButton = {
             FloatingActionButton(
@@ -62,34 +61,53 @@ fun PatientDetailScreen(
                 )
             }
         }
-    ) {
-        LazyColumn(contentPadding = it) {
-            items(medicines) { medicine ->
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+    ) { paddingValues ->
+        // --- 1. CHECK IF EMPTY ---
+        if (medicines.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "No medicines prescribed yet.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.Gray
+                )
+            }
+        } else {
+            // --- 2. SHOW LIST IF NOT EMPTY ---
+            LazyColumn(contentPadding = paddingValues) {
+                items(medicines) { medicine ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp)
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(text = medicine.name, style = MaterialTheme.typography.titleLarge)
-                            Text(text = "Dosage: ${medicine.dosage}", style = MaterialTheme.typography.bodyMedium)
-                            Text(text = "Time: ${medicine.time}", style = MaterialTheme.typography.bodyMedium)
-                        }
-                        Row {
-                            IconButton(onClick = {
-                                selectedMedicine = medicine
-                                showSheet = true
-                            }) {
-                                Icon(Icons.Default.Edit, contentDescription = "Edit Medicine")
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(text = medicine.name, style = MaterialTheme.typography.titleLarge)
+                                Text(text = "Dosage: ${medicine.dosage}", style = MaterialTheme.typography.bodyMedium)
+                                Text(text = "Time: ${medicine.time}", style = MaterialTheme.typography.bodyMedium)
                             }
-                            IconButton(onClick = { 
-                                medicineToDelete = medicine
-                                showDeleteDialog = true
-                            }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Delete Medicine", tint = Color.Red)
+                            Row {
+                                IconButton(onClick = {
+                                    selectedMedicine = medicine
+                                    showSheet = true
+                                }) {
+                                    Icon(Icons.Default.Edit, contentDescription = "Edit Medicine")
+                                }
+                                IconButton(onClick = {
+                                    medicineToDelete = medicine
+                                    showDeleteDialog = true
+                                }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Delete Medicine", tint = Color.Red)
+                                }
                             }
                         }
                     }
