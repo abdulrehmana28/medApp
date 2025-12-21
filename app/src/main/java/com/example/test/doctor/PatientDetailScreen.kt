@@ -104,6 +104,8 @@ fun PatientDetailScreen(
             onDismiss = { showSheet = false },
             onSave = { updatedMedicine ->
                 doctorViewModel.prescribeMedicine(patientId, updatedMedicine)
+
+                showSheet = false
             }
         )
     }
